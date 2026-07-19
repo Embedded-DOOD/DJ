@@ -103,9 +103,6 @@ def build_parser() -> argparse.ArgumentParser:
                              "Required for Go+ quality.")
     parser.add_argument("--cookies-file", type=Path, default=None, metavar="FILE",
                         help="Netscape cookies.txt file for SoundCloud auth.")
-    parser.add_argument("--ffmpeg-path", default="", metavar="PATH",
-                        help="Directory containing ffmpeg/ffprobe, or full path to ffmpeg.exe. "
-                             "Overrides cratedigg.cfg ffmpeg_path.")
 
     return parser
 
@@ -127,7 +124,6 @@ def make_settings(args: argparse.Namespace) -> RunSettings:
         id_order=args.id_order,
         cookies_from_browser=args.cookies_from_browser,
         cookies_file=args.cookies_file,
-        ffmpeg_path=args.ffmpeg_path,
         yt_fallback=not args.no_yt_fallback,
     )
 
@@ -208,8 +204,6 @@ def main() -> int:
             overrides["cookies_file"] = Path(cfg["cookies_file"])
         if "cookies_from_browser" in cfg:
             overrides["cookies_from_browser"] = cfg["cookies_from_browser"]
-        if "ffmpeg_path" in cfg:
-            overrides["ffmpeg_path"] = cfg["ffmpeg_path"]
         if overrides:
             parser.set_defaults(**overrides)
 

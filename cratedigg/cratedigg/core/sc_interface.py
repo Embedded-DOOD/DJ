@@ -32,7 +32,6 @@ class RateLimitError(RuntimeError):
 def build_ydl_options(
     cookies_from_browser: str = "",
     cookies_file: Optional[Path] = None,
-    ffmpeg_path: str = "",
     sleep_requests: float = 0.0,
     limit_rate: str = "",
     throttled_rate: str = "",
@@ -40,9 +39,6 @@ def build_ydl_options(
     max_sleep_interval: float = 0.0,
 ) -> Dict[str, object]:
     options: Dict[str, object] = {"quiet": True, "no_warnings": True}
-
-    if ffmpeg_path:
-        options["ffmpeg_location"] = ffmpeg_path
 
     if cookies_from_browser:
         options["cookiesfrombrowser"] = (cookies_from_browser, None, None, None)

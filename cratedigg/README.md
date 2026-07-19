@@ -123,26 +123,66 @@ python main.py input/my_playlist.csv --force-redownload
 
 ## CLI Reference
 
+### Input (pick one)
+
+| Flag | Description |
+|---|---|
+| `csv PATH` | Single Exportify CSV file (positional argument) |
+| `--csv-folder DIR` | Process all CSV files in a folder |
+| `--sc-playlist URL` | Download a SoundCloud playlist, set, or user page directly — no CSV needed |
+
+---
+
+### Directories
+
 | Flag | Default | Description |
 |---|---|---|
-| `csv` | — | Single Exportify CSV file |
-| `--csv-folder DIR` | — | Folder of CSV files (processes all) |
-| `--sc-playlist URL` | — | SoundCloud playlist/set/user URL (direct mode) |
-| `--input-dir DIR` | `./input` | Where `--csv-folder` looks by default |
-| `--output-dir DIR` | `./output` | Root folder for downloaded audio |
-| `--work-dir DIR` | `./work` | Where work-state CSVs are kept |
-| `--mp3` | off | Transcode to MP3 320kbps instead of preserving native format |
-| `--workers N` | `3` | Parallel download workers |
-| `--resolve-only` | off | Find SoundCloud matches and save to CSV without downloading |
-| `--force-redownload` | off | Re-download rows already marked complete |
-| `--limit N` | `0` (all) | Stop after N rows |
-| `--duration-tolerance SEC` | `10` | Max duration difference (seconds) for a match |
-| `--search-results N` | `6` | SoundCloud candidates to score per track |
-| `--id-order` | `priority` | Row order: `priority` · `ascending` · `descending` · `default` |
-| `--cookies-from-browser BROWSER` | — | Pull SoundCloud session from `chrome`, `firefox`, `edge`, `brave` |
-| `--cookies-file FILE` | — | Netscape `cookies.txt` file for SoundCloud auth |
-| `--sleep-requests SEC` | `1.1` | Delay between yt-dlp requests |
-| `--limit-rate RATE` | — | Download rate cap e.g. `4M` |
+| `--output-dir DIR` | `./output` | Root folder for downloaded audio. Pass `D:\` to send directly to a USB drive. |
+| `--work-dir DIR` | `./work` | Where resumable work-state CSVs are stored (auto-managed — don't edit) |
+| `--input-dir DIR` | `./input` | Folder scanned when using `--csv-folder` without a path |
+
+---
+
+### Quality & Auth
+
+| Flag | Default | Description |
+|---|---|---|
+| `--cookies-from-browser BROWSER` | — | Read your SoundCloud session from an installed browser: `chrome`, `firefox`, `edge`, `brave`. **Required for Go+ quality.** |
+| `--cookies-file FILE` | — | Netscape-format `cookies.txt` alternative to browser extraction |
+| `--mp3` | off | Transcode output to MP3 320kbps. Default preserves native SoundCloud format (AAC with Go+). |
+
+---
+
+### Download Behaviour
+
+| Flag | Default | Description |
+|---|---|---|
+| `--workers N` | `3` | Number of parallel download threads |
+| `--resolve-only` | off | Find and score SoundCloud matches, save to work CSV, skip actual download. Good for a first-pass review. |
+| `--force-redownload` | off | Re-download rows already marked as complete |
+| `--limit N` | `0` (all) | Stop after N rows — useful for testing |
+
+---
+
+### Matching
+
+| Flag | Default | Description |
+|---|---|---|
+| `--duration-tolerance SEC` | `10` | Maximum allowed duration difference (seconds) between the Spotify track and a SoundCloud candidate. Increase if legitimate matches are being skipped. |
+| `--search-results N` | `6` | Number of SoundCloud candidates to score per track. Higher values find more obscure matches but are slower. |
+| `--id-order` | `priority` | Row processing order: `priority` (new first, then retries) · `ascending` (by row ID) · `descending` · `default` (CSV order) |
+
+---
+
+### Rate Limiting
+
+| Flag | Default | Description |
+|---|---|---|
+| `--sleep-requests SEC` | `1.1` | Delay between yt-dlp requests to avoid SoundCloud rate limits |
+| `--sleep-interval SEC` | `0.0` | Minimum sleep between downloads |
+| `--max-sleep-interval SEC` | `0.0` | Maximum sleep between downloads (enables jitter when > 0) |
+| `--limit-rate RATE` | — | Cap download bandwidth, e.g. `4M` for 4 MB/s |
+| `--throttled-rate RATE` | — | yt-dlp throttled-rate fallback, e.g. `50K` |
 
 ---
 

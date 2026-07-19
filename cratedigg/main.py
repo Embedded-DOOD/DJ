@@ -47,8 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Transcode to MP3 320kbps (default: preserve native format).")
     parser.add_argument("--limit", type=int, default=0, metavar="N",
                         help="Stop after N rows (0 = all).")
-    parser.add_argument("--workers", type=int, default=3, metavar="N",
-                        help="Parallel download workers (default: 3).")
+    parser.add_argument("--workers", type=int, default=1, metavar="N",
+                        help="Parallel download workers (default: 1). SoundCloud rate-limits aggressively — only raise above 1 if you're not seeing 429 errors.")
 
     # Matching
     parser.add_argument("--duration-tolerance", type=int, default=10, metavar="SEC",
@@ -59,8 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
                         default="priority", help="Row processing order (default: priority).")
 
     # Rate limiting
-    parser.add_argument("--sleep-requests", type=float, default=1.1, metavar="SEC",
-                        help="Delay between yt-dlp requests (default: 1.1).")
+    parser.add_argument("--sleep-requests", type=float, default=2.0, metavar="SEC",
+                        help="Delay between yt-dlp requests (default: 2.0).")
     parser.add_argument("--limit-rate", default="", metavar="RATE",
                         help="Download rate cap e.g. 4M.")
     parser.add_argument("--throttled-rate", default="", metavar="RATE",

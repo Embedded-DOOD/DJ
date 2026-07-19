@@ -38,7 +38,7 @@ flowchart TD
 **Key behaviors:**
 - **Native quality by default** — preserves the SoundCloud stream format (AAC with Go+). `--mp3` transcodes to 320kbps MP3 if you need it.
 - **Resumable** — every row's state is written to a `_work.csv`. Interrupted runs pick up exactly where they left off.
-- **Parallel workers** — configurable concurrent downloads (default: 3).
+- **Serial by default** — runs one track at a time (`--workers 1`) to avoid SoundCloud 429 rate limits. Use `--workers 2` only if you're not hitting rate limits.
 - **Source URL embedded** — the SoundCloud track link is written into the audio file's `WOAS` ID3 tag and the work CSV `source_url` column.
 
 ---
@@ -157,7 +157,7 @@ python main.py input/my_playlist.csv --force-redownload
 
 | Flag | Default | Description |
 |---|---|---|
-| `--workers N` | `3` | How many tracks to download at the same time. Higher values are faster but increase the chance of SoundCloud rate-limiting you. `3` is a safe default for most connections. |
+| `--workers N` | `1` | How many tracks to download at the same time. SoundCloud rate-limits aggressively with concurrent requests — keep at `1` unless you're confident you won't hit 429 errors. |
 | `--resolve-only` | off | Searches SoundCloud for matches and saves results to the work CSV, but does not download any audio. Useful as a first pass to preview what was found and what couldn't be matched before committing to a full download. |
 | `--force-redownload` | off | Re-downloads every track, even ones already marked complete in the work CSV. Use this if you want to replace existing files (e.g. switching from free-tier quality to Go+). |
 | `--limit N` | `0` (all) | Stops after downloading N tracks. Useful for testing that the tool is working before committing to a full playlist run. `0` means no limit — process everything. |
@@ -180,7 +180,7 @@ These options help avoid getting temporarily blocked by SoundCloud for making to
 
 | Flag | Default | Description |
 |---|---|---|
-| `--sleep-requests SEC` | `1.1` | Pause (in seconds) between each request to SoundCloud. The default of 1.1 seconds is conservative and generally avoids rate-limit errors. Lower it to go faster at the risk of getting blocked; raise it if you're seeing `rate_limit` errors. |
+| `--sleep-requests SEC` | `2.0` | Pause (in seconds) between each request to SoundCloud. Raise this if you're still seeing 429 rate-limit errors; lower it only if you're confident SoundCloud won't throttle you. |
 | `--sleep-interval SEC` | `0.0` | Minimum pause between finishing one download and starting the next. Set to a positive value (e.g. `2.0`) if SoundCloud starts throttling individual downloads. |
 | `--max-sleep-interval SEC` | `0.0` | When set above `--sleep-interval`, cratedigg picks a random wait time between the two values. This randomness makes the download pattern look less like a bot to SoundCloud's servers. |
 | `--limit-rate RATE` | — | Caps how fast each file downloads. For example, `4M` limits to 4 MB/s. Useful if you're on a shared connection and don't want cratedigg to saturate your bandwidth. |

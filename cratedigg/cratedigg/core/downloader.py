@@ -104,9 +104,9 @@ class RunSettings:
     download_enabled: bool = True
     force_redownload: bool = False
     limit: int = 0
-    workers: int = 3
+    workers: int = 1
     prefer_mp3: bool = False
-    sleep_requests: float = 1.1
+    sleep_requests: float = 2.0
     limit_rate: str = ""
     throttled_rate: str = ""
     sleep_interval: float = 0.0

@@ -412,9 +412,16 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
         pending.append(row_index)
 
     total = len(pending)
+    if settings.cookies_from_browser:
+        auth_str = f"Go+ via browser cookies ({settings.cookies_from_browser})"
+    elif settings.cookies_file:
+        auth_str = f"Go+ via cookies file"
+    else:
+        auth_str = f"{SYM_WARN} free tier — no cookies (128kbps MP3)"
     log_divider()
     log(f"cratedigg  {SYM_ARROW}  {csv_path.name}")
     log(f"  {total} tracks to process  |  {auto_skipped} already complete")
+    log(f"  quality: {auth_str}")
     fmt_str = "mp3 (transcoded)" if settings.prefer_mp3 else "native (best quality)"
     log(f"  format: {fmt_str}  |  workers: {settings.workers}")
     log_divider()

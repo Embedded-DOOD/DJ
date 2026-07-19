@@ -2,9 +2,9 @@
 
 > Source your Spotify playlists from SoundCloud — higher quality, your library, your files.
 
-**cratedigg** is named after *crate digging* — the DJ practice of hunting through record crates for rare, high-quality tracks. The tool does the same thing digitally: takes your Spotify playlist and finds the best available version of each track on SoundCloud, preserving native audio quality instead of settling for a YouTube re-encode.
+**cratedigg** is named after *crate digging*, the DJ practice of hunting through record crates for rare, high-quality tracks. The tool does the same thing digitally: takes your Spotify playlist and finds the best available version of each track on SoundCloud, downloading it as MP3 320kbps for your DJ library. YouTube serves as a fallback for anything SoundCloud cannot deliver.
 
-cratedigg takes an Exportify CSV (your Spotify playlist) and downloads each track from SoundCloud instead of YouTube Music. With SoundCloud Go+, you get 256kbps AAC or the artist's original upload. It can also download SoundCloud playlists and sets directly without any Spotify CSV at all.
+cratedigg takes an Exportify CSV (your Spotify playlist) and downloads each track from SoundCloud as MP3 320kbps. With SoundCloud Go+, it sources from 256kbps AAC or the artist's original upload before transcoding. Tracks unavailable on SoundCloud (DRM, deleted, rate-limited) fall back to YouTube automatically. It can also download SoundCloud playlists and sets directly without any Spotify CSV at all.
 
 > **SoundCloud Go+ is strongly recommended.** Without it, SoundCloud serves 128kbps MP3 — no better than a YouTube rip. Go+ unlocks 256kbps AAC and original-quality uploads. See [SoundCloud Go+](https://soundcloud.com/go).
 
@@ -31,34 +31,33 @@ flowchart TD
 
     E1 --> G[Embed metadata + cover art\ntitle · artist · album · ISRC · source URL]
     E2 --> G
-    G --> H([Audio file\nnative AAC / MP3])
+    G --> H([Audio file\nMP3 320kbps])
     G --> I([work CSV\nresumable state])
 ```
 
 **Key behaviors:**
-- **Native quality by default** — preserves the SoundCloud stream format (AAC with Go+). `--mp3` transcodes to 320kbps MP3 if you need it.
+- **MP3 320kbps by default** — all downloads are transcoded to MP3 320 for universal DJ hardware compatibility. Use `--native-format` to keep the raw stream (m4a/webm).
 - **Resumable** — every row's state is written to a `_work.csv`. Interrupted runs pick up exactly where they left off.
 - **Serial by default** — runs one track at a time (`--workers 1`) to avoid SoundCloud 429 rate limits. Use `--workers 2` only if you're not hitting rate limits.
+- **YouTube fallback** — tracks unavailable on SoundCloud (DRM, deleted, private, or rate-limited) are automatically retried on YouTube. Fallback tracks are marked `[yt]` in the log.
 - **Source URL embedded** — the SoundCloud track link is written into the audio file's `WOAS` ID3 tag and the work CSV `source_url` column.
 
 ---
 
 ## Quick Start
 
-**Prerequisites:** Python 3.10+, ffmpeg on PATH (see below), [SoundCloud Go+](https://soundcloud.com/go) subscription
+**Prerequisites:** Python 3.10+, ffmpeg on PATH, [SoundCloud Go+](https://soundcloud.com/go) subscription
 
 ```powershell
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Install ffmpeg (Windows — one-time)
-Invoke-WebRequest -Uri "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile "$env:TEMP\ffmpeg.zip"
-Expand-Archive "$env:TEMP\ffmpeg.zip" -DestinationPath "$env:TEMP\ffmpeg"
-Copy-Item (Get-ChildItem "$env:TEMP\ffmpeg" -Recurse -Filter "ffmpeg.exe" | Select -First 1).FullName -Destination "."
-Copy-Item (Get-ChildItem "$env:TEMP\ffmpeg" -Recurse -Filter "ffprobe.exe" | Select -First 1).FullName -Destination "."
+# 2. Install ffmpeg (Windows, one-time)
+winget install Gyan.FFmpeg
+# Restart your terminal after install, then verify: ffmpeg -version
 
 # 3. Export your Spotify playlist (see below), then run
-python main.py my_playlist.csv
+python main.py input/my_playlist.csv
 ```
 
 ---
@@ -83,11 +82,11 @@ cratedigg uses [Exportify](https://exportify.app) to get your Spotify playlist d
 # Drop CSV in input/, then run from the cratedigg/ directory:
 python main.py input/my_playlist.csv
 
-# Best quality — unlock Go+ streams via browser cookies
-python main.py input/my_playlist.csv --cookies-from-browser chrome
+# Best quality — unlock Go+ streams via cookies file (see cratedigg.cfg)
+python main.py input/my_playlist.csv
 
-# Force MP3 output instead of native format
-python main.py input/my_playlist.csv --mp3 --cookies-from-browser chrome
+# Keep native stream format instead of transcoding to MP3
+python main.py input/my_playlist.csv --native-format
 
 # Process all CSVs in the input/ folder at once
 python main.py --csv-folder input/
@@ -148,8 +147,8 @@ python main.py input/my_playlist.csv --force-redownload
 | Flag | Default | Description |
 |---|---|---|
 | `--cookies-from-browser BROWSER` | — | Tells cratedigg to read your SoundCloud login session from your browser's local cookie store. SoundCloud uses this to confirm you're a Go+ subscriber, unlocking 256kbps AAC or original-upload quality instead of 128kbps MP3. Supported values: `chrome`, `firefox`, `edge`, `brave`. You must be logged into SoundCloud in that browser. |
-| `--cookies-file FILE` | — | An alternative to `--cookies-from-browser`. Export your SoundCloud cookies to a Netscape-format `cookies.txt` file using a browser extension (e.g. "Get cookies.txt LOCALLY"), then pass the file path here. Useful if browser extraction doesn't work on your system. |
-| `--mp3` | off | Forces all downloads to be transcoded to MP3 at 320kbps, regardless of what format SoundCloud provides. By default cratedigg keeps the native format — AAC (`.m4a`) with Go+, which is higher quality than MP3 at the same bitrate. Only use `--mp3` if your software or hardware requires it (e.g. some older DJ controllers). |
+| `--cookies-file FILE` | — | An alternative to `--cookies-from-browser`. Export your SoundCloud cookies to a Netscape-format `cookies.txt` file using a browser extension (e.g. "Get cookies.txt LOCALLY"), then pass the file path here. Useful if browser extraction does not work on your system. |
+| `--native-format` | off | Keeps the raw stream format from SoundCloud or YouTube (m4a or webm) instead of transcoding to MP3 320kbps. Only use this if you have a specific reason to preserve the original container. |
 
 ---
 
@@ -193,23 +192,23 @@ These options help avoid getting temporarily blocked by SoundCloud for making to
 ```
 DJ/cratedigg/
 ├── input/
-│   └── my_playlist.csv          ← drop Exportify CSVs here
+│   └── my_playlist.csv          <- drop Exportify CSVs here
 │
 ├── output/
-│   └── my_playlist/             ← audio files, one folder per playlist
-│       ├── 0001 - Artist - Track.m4a
-│       ├── 0002 - Artist - Track.m4a
+│   └── my_playlist/             <- audio files, one folder per playlist
+│       ├── Artist - Track.mp3
+│       ├── Artist - Track.mp3
 │       └── ...
 │
 └── work/
-    └── my_playlist_work.csv     ← auto-managed state (don't edit)
+    └── my_playlist_work.csv     <- auto-managed state (don't edit)
 
 # SC playlist direct mode:
 └── work/
     └── username_sets_my-set_work.csv
 └── output/
     └── username_sets_my-set/
-        └── 0001 - Artist - Track.m4a
+        └── Artist - Track.mp3
 ```
 
 The `_work.csv` file is your resumable state. It tracks:
@@ -234,7 +233,7 @@ The `_work.csv` file is your resumable state. It tracks:
 | `resolved` | → | SC match saved, download pending | Rerun without `--resolve-only` |
 | `unresolved` | ? | No SC match within duration tolerance | Try `--duration-tolerance 20` |
 | `error` | ✗ | Permanent failure | Check `error_message` column |
-| `retry` | ! | Hit rate limit | Rerun later — row is automatically retried |
+| `retry` | ! | Hit rate limit with no YouTube fallback | Rerun — row is automatically retried. With fallback enabled (default), rate-limited tracks go to YouTube automatically and should not appear here. |
 
 ---
 
@@ -242,13 +241,19 @@ The `_work.csv` file is your resumable state. It tracks:
 
 With Go+, SoundCloud delivers **256kbps AAC** or the **original uploaded file** on tracks where the artist enabled it — significantly better than the 128kbps MP3 you get without a subscription.
 
-To unlock Go+ streams, pass your browser's SoundCloud session cookies:
+To unlock Go+ streams, pass your cookies file (configured in `cratedigg.cfg` by default):
 
 ```powershell
-python main.py my_playlist.csv --cookies-from-browser chrome
+python main.py input/my_playlist.csv
 ```
 
-Your browser must be open and logged into SoundCloud with an active Go+ subscription. The `--cookies-from-browser` flag works with `chrome`, `firefox`, `edge`, and `brave`.
+Or override on the command line:
+
+```powershell
+python main.py input/my_playlist.csv --cookies-file sc_cookies.txt
+```
+
+Export your cookies from soundcloud.com using the "Get cookies.txt LOCALLY" Chrome extension. Your browser must be logged into SoundCloud with an active Go+ subscription.
 
 > **Note:** Even with Go+, not every track exposes an original-quality stream — it depends on what the artist uploaded. The tool always selects the best available format.
 
@@ -273,7 +278,7 @@ Understanding the quality difference between sources helps you decide when the Y
 - **256kbps AAC** — effectively transparent to most listeners. AAC is a more efficient codec than MP3, so 256kbps AAC sounds roughly equivalent to MP3 at 320kbps.
 - **Original upload** (Go+, some tracks) — best case. Some artists upload WAV or FLAC directly to SoundCloud. You get exactly what they uploaded, with no lossy compression at all.
 
-### AAC vs MP3 — What's the Difference?
+### AAC vs MP3: What's the Difference?
 
 Both are **lossy** formats — they discard audio information the codec deems inaudible to save space. The difference is in *how efficiently* they do it:
 
@@ -314,12 +319,12 @@ Tracks sourced from YouTube are marked `[yt]` in the log output. After a run, au
 
 ---
 
-
+## Using with Rekordbox
 
 1. Download your playlist with cratedigg
-2. In Rekordbox: **File → Add Folder to Collection**
+2. In Rekordbox: **File -> Add Folder to Collection**
 3. Point it at the playlist folder (e.g. `D:\my_playlist\`)
-4. Rekordbox reads the embedded metadata (title, artist, album, BPM after analysis)
+4. Rekordbox reads the embedded metadata (title, artist, album, then analyzes BPM on import)
 
-Native AAC (`.m4a`) and MP3 are both fully supported by Rekordbox.
+MP3 is fully supported by Rekordbox and all Pioneer hardware. If you used `--native-format`, Rekordbox also handles m4a natively.
 

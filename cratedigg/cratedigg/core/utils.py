@@ -49,8 +49,7 @@ def first_artist(artists: str) -> str:
 
 
 def stable_base_name(row_id: int, artist: str, track: str) -> str:
-    """Include row_id to guarantee uniqueness across duplicate titles."""
-    merged = f"{row_id:04d} - {artist} - {track}".strip(" -")
+    merged = f"{artist} - {track}".strip(" -")
     merged = re.sub(r"[\\/:*?\"<>|]", "_", merged)
     merged = re.sub(r"\s+", " ", merged).strip()
     return merged[:160] if merged else f"{row_id:04d}-track"

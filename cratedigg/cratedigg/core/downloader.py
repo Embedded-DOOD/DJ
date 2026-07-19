@@ -580,42 +580,62 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
         write_csv(csv_path, fieldnames, rows)
 
     original_sigint = signal.getsignal(signal.SIGINT)
+    executor_ref: List = [None]  # lets the SIGINT handler reach the executor
 
     def _sigint_handler(sig, frame):
-        log(f"\n{SYM_WARN} Interrupted — flushing progress to CSV...")
+        log(f"\n{SYM_WARN} Interrupted — flushing progress and stopping workers...")
         flush_csv()
+        ex = executor_ref[0]
+        if ex is not None:
+            ex.shutdown(wait=False, cancel_futures=True)
         signal.signal(signal.SIGINT, original_sigint)
         sys.exit(1)
 
     signal.signal(signal.SIGINT, _sigint_handler)
 
     with ThreadPoolExecutor(max_workers=settings.workers) as executor:
-        future_to_index: Dict[Future, int] = {}
-        seq = 0  # submission sequence for display tagging
+        executor_ref[0] = executor
+        active: Dict[Future, int] = {}
+        seq = 0
+        pending_iter = iter(pending)
 
-        for row_index in pending:
+        def _submit_next() -> bool:
+            """Submit the next pending row. Returns False when queue is exhausted."""
+            nonlocal seq
             if rate_limited_flag:
-                break
+                return False
+            try:
+                row_index = next(pending_iter)
+            except StopIteration:
+                return False
             seq += 1
             tag = _tag(seq, total)
             future = executor.submit(
                 _worker, row_index, dict(rows[row_index]), output_dir, settings, tag
             )
-            future_to_index[future] = row_index
+            active[future] = row_index
+            return True
 
-        for future in as_completed(future_to_index):
-            ri = future_to_index[future]
+        # Fill up to max_workers initially.
+        for _ in range(settings.workers):
+            if not _submit_next():
+                break
+
+        while active:
+            # as_completed on a snapshot; process one result then refill.
+            done = next(iter(as_completed(list(active))))
+            ri = active.pop(done)
             row = rows[ri]
             track  = (row.get("Track Name") or "?").strip()
             artist = first_artist(row.get("Artist Name(s)") or "?")
             rid    = _row_id_value(row) or (ri + 1)
 
             try:
-                result: RowResult = future.result()
+                result: RowResult = done.result()
             except RateLimitError as exc:
                 rate_limited_flag = True
                 err = format_error_for_display(str(exc))
-                log(f"  {SYM_WARN} Rate limited — stopping. Marked for retry.\n    {err}")
+                log(f"  {SYM_WARN} Rate limited — stopping new submissions. Marked for retry.\n    {err}")
                 row["download_status"] = STATUS_RETRY
                 row["attempted_at"]    = utc_now()
                 row["error_message"]   = str(exc).strip()[:400]
@@ -625,6 +645,7 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
                                           "rate limited — rerun later"))
                 completed += 1
                 flush_csv()
+                # Do NOT submit more work; drain remaining active futures.
                 continue
             except Exception as exc:
                 err = format_error_for_display(str(exc))
@@ -654,6 +675,9 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
 
             if completed % FLUSH_INTERVAL == 0:
                 flush_csv()
+
+            # Keep the pool full while there's work remaining.
+            _submit_next()
 
     flush_csv()
     signal.signal(signal.SIGINT, original_sigint)

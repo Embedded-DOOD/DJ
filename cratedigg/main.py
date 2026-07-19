@@ -61,8 +61,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Find SoundCloud matches and save to work CSV, but skip download.")
     parser.add_argument("--force-redownload", action="store_true",
                         help="Re-download rows already marked as downloaded.")
-    parser.add_argument("--mp3", action="store_true",
-                        help="Transcode to MP3 320kbps (default: preserve native format).")
+    parser.add_argument("--native-format", action="store_true",
+                        help="Keep native stream format (m4a/webm) instead of transcoding to MP3 320kbps.")
     parser.add_argument("--limit", type=int, default=0, metavar="N",
                         help="Stop after N rows (0 = all).")
     parser.add_argument("--workers", type=int, default=1, metavar="N",
@@ -115,7 +115,7 @@ def make_settings(args: argparse.Namespace) -> RunSettings:
         force_redownload=args.force_redownload,
         limit=args.limit,
         workers=args.workers,
-        prefer_mp3=args.mp3,
+        prefer_mp3=not args.native_format,
         sleep_requests=args.sleep_requests,
         limit_rate=args.limit_rate,
         throttled_rate=args.throttled_rate,

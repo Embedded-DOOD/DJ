@@ -105,7 +105,7 @@ class RunSettings:
     force_redownload: bool = False
     limit: int = 0
     workers: int = 1
-    prefer_mp3: bool = False
+    prefer_mp3: bool = True
     sleep_requests: float = 2.0
     limit_rate: str = ""
     throttled_rate: str = ""
@@ -571,7 +571,7 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
     log(f"cratedigg  {SYM_ARROW}  {csv_path.name}")
     log(f"  {total} tracks to process  |  {auto_skipped} already complete")
     log(f"  quality: {auth_str}")
-    fmt_str = "mp3 (transcoded)" if settings.prefer_mp3 else "native (best quality)"
+    fmt_str = "native (best quality)" if not settings.prefer_mp3 else "mp3 320kbps"
     log(f"  format: {fmt_str}  |  workers: {settings.workers}")
     log_divider()
 

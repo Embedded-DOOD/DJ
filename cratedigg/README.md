@@ -261,62 +261,103 @@ Export your cookies from soundcloud.com using the "Get cookies.txt LOCALLY" Chro
 
 ## Audio Quality Reference
 
-Understanding the quality difference between sources helps you decide when the YouTube fallback is acceptable and when it isn't.
+This section explains audio quality from the ground up, so you can make informed decisions about where your music is coming from and why it matters for DJing.
+
+---
+
+### What Is Audio Quality?
+
+Sound is a physical wave. When audio is recorded, that continuous wave gets converted into millions of tiny numerical measurements per second (this is called *sampling*). A 44.1kHz audio file takes 44,100 measurements per second per channel. Stereo has two channels, so you end up with 88,200 numbers per second just to represent one second of music.
+
+An uncompressed audio file stores every single one of those numbers. That is what WAV and AIFF are. A 4-minute song at CD quality takes up about 40-50MB. For a 500-track DJ library, that is 20-25GB just for the audio.
+
+Audio compression formats like MP3 and AAC were invented to make files dramatically smaller. They do this by throwing away parts of the audio that the human ear is less likely to notice, using a branch of science called *psychoacoustics*. The key word is "throwing away" -- once that data is gone, it cannot be recovered.
+
+---
+
+### What Does Kbps Mean?
+
+**Kbps stands for kilobits per second.** It is the rate at which audio data flows through the file.
+
+Think of it like a water pipe. Higher kbps means a wider pipe -- more data per second, meaning more of the original sound is preserved. Lower kbps means a narrower pipe -- the codec has to work harder to squeeze the sound into less space, and that compression leaves audible artifacts.
+
+Here is how to think about common bitrates:
+
+| Bitrate | What You Hear |
+|---|---|
+| 128kbps MP3 | Audible compression at high volume. Kick drums sound slightly smeared. Hi-hats have a "watery" shimmer. Noticeably worse on a PA system compared to a reference recording. |
+| 192kbps MP3 | Better, but trained ears can still pick out artifacts on complex material (dense mixes, cymbals, reverb tails). |
+| 256kbps AAC | Effectively transparent to most listeners in most conditions. This is what SoundCloud Go+ and most streaming services deliver. |
+| 320kbps MP3 | The practical ceiling for MP3. Very difficult to distinguish from lossless on real-world playback equipment. |
+| Lossless (WAV/AIFF/FLAC) | Every sample from the original recording, nothing removed. Only meaningfully better than 320kbps MP3 if your source was lossless to begin with. |
+
+---
+
+### Lossy vs Lossless
+
+**Lossy formats** (MP3, AAC, Opus) permanently discard audio data to save space. Every time you encode to a lossy format, quality degrades. You cannot reverse this -- the discarded data is gone.
+
+**Lossless formats** (WAV, AIFF, FLAC) preserve every sample. FLAC compresses the file size (like a ZIP file for audio) but reconstructs it perfectly on playback. WAV and AIFF store the raw uncompressed samples directly.
+
+The critical implication for this tool: **SoundCloud Go+ delivers 256kbps AAC. That is already a lossy source.** Converting it to WAV or AIFF afterwards does not give you lossless quality. You are just wrapping a lossy file in a lossless container, getting all the file size with none of the quality benefit. This is why cratedigg transcodes to MP3 320kbps rather than WAV -- the quality ceiling is set by the source, not the output format.
+
+---
+
+### AAC vs MP3: What Is the Difference?
+
+Both AAC and MP3 are lossy formats, but they use different algorithms to decide what to throw away.
+
+**MP3** was developed in 1993. It was revolutionary at the time but uses older psychoacoustic models. At 128kbps it degrades noticeably. At 320kbps it is very good, but it took a high bitrate to get there.
+
+**AAC** was developed in 1997 as MP3's successor. It uses more sophisticated compression and achieves the same perceived quality as MP3 at a lower bitrate. This is why you can think of 256kbps AAC and 320kbps MP3 as roughly equivalent in practice. AAC is the native format for SoundCloud Go+, YouTube, Apple Music, and most modern streaming services.
+
+---
 
 ### Source Comparison
 
-| Source | Format | Bitrate | Notes |
+Where your audio comes from determines the quality ceiling, regardless of what format cratedigg saves it as.
+
+| Source | Format Delivered | Bitrate | Notes |
 |---|---|---|---|
-| **SoundCloud Go+** | AAC (.m4a) | 256kbps | Or original upload — could be lossless WAV/FLAC |
-| SoundCloud free | MP3 | 128kbps | Noticeably degraded at high volume |
-| YouTube (free) | AAC / Opus | 128–160kbps | Varies by upload; often a transcode of a transcode |
-| YouTube Premium | AAC | Up to 256kbps | Rare to actually reach this ceiling |
+| **SoundCloud Go+** | AAC (.m4a) | 256kbps | Or original upload if the artist enabled it (could be lossless WAV/FLAC) |
+| SoundCloud free | MP3 | 128kbps | Noticeably degraded at high volume on a PA |
+| YouTube (free) | AAC or Opus | 128-160kbps | Varies by video. Often a re-encode of an already-compressed source |
+| YouTube Premium | AAC | Up to 256kbps | Rare to actually reach this ceiling in practice |
 
-### What the Numbers Mean for DJing
-
-- **128kbps** — audible compression artifacts on kick drums and hi-hats when played loud through a PA. Most experienced ears can hear the difference on a decent system.
-- **256kbps AAC** — effectively transparent to most listeners. AAC is a more efficient codec than MP3, so 256kbps AAC sounds roughly equivalent to MP3 at 320kbps.
-- **Original upload** (Go+, some tracks) — best case. Some artists upload WAV or FLAC directly to SoundCloud. You get exactly what they uploaded, with no lossy compression at all.
-
-### AAC vs MP3: What's the Difference?
-
-Both are **lossy** formats — they discard audio information the codec deems inaudible to save space. The difference is in *how efficiently* they do it:
-
-**MP3** (1993) is the older standard. At 128kbps it sounds noticeably compressed — smeared stereo image, artifacts on transients. At 320kbps it's good but still technically lossy.
-
-**AAC** (1997) uses a more modern compression algorithm. It achieves the same perceived quality as MP3 at a lower bitrate — 256kbps AAC is generally considered audibly equivalent to 320kbps MP3. AAC is the native format for Apple devices, SoundCloud Go+, YouTube, and most streaming services.
+---
 
 ### Output Format: Why MP3 320kbps?
 
-cratedigg transcodes all downloads to **MP3 320kbps** by default. Here's why this is the right call for a DJ library:
+cratedigg transcodes all downloads to **MP3 320kbps** by default. Here is why:
 
-**SoundCloud Go+ delivers 256kbps AAC.** Converting that to AIFF or WAV doesn't recover lost data — the source is already lossy. A larger file at "lossless" format doesn't mean better quality when the input wasn't lossless.
+Since the source is already lossy (256kbps AAC from SoundCloud Go+, or lower from YouTube), there is no quality benefit to saving as WAV or AIFF. The original data was already discarded upstream. MP3 320kbps at this point is not degrading the audio further in any way you would notice -- it is repacking a 256kbps AAC signal into an MP3 container at a higher bitrate than the original, which gives it headroom.
 
-**MP3 320kbps is the universal format for DJ hardware.** Every controller, CDJ, and media player ever made reads it without issue.
+The real reason to choose MP3 is hardware compatibility:
 
-| Format | DDJ-FLX4 | CDJ-2000NXS2 | Older CDJs | File Size (4min track) |
+| Format | DDJ-FLX4 | CDJ-2000NXS2 | Older CDJs | File Size (4 min track) |
 |---|---|---|---|---|
-| **MP3 320kbps** | ✅ | ✅ | ✅ | ~9MB |
-| AAC/M4A 256kbps | ✅ (via rekordbox) | ✅ | ⚠️ Some models only | ~7MB |
-| WAV / AIFF | ✅ (via rekordbox) | ✅ | ✅ | ~50MB |
-| WebM / Opus | ✅ (via rekordbox) | ❌ | ❌ | ~6MB |
-| FLAC | ✅ (via rekordbox) | ✅ | ❌ | ~25MB |
+| **MP3 320kbps** | yes | yes | yes | ~9MB |
+| AAC/M4A 256kbps | yes (via rekordbox) | yes | some models only | ~7MB |
+| WAV / AIFF | yes (via rekordbox) | yes | yes | ~50MB |
+| WebM / Opus | yes (via rekordbox) | no | no | ~6MB |
+| FLAC | yes (via rekordbox) | yes | no | ~25MB |
 
-**DDJ-FLX4 note:** The FLX4 is a rekordbox controller — audio plays through rekordbox on your laptop, not read natively from the controller. This means rekordbox handles format decoding, so in theory it supports everything rekordbox supports. In practice, MP3 320kbps is still the best choice: universal compatibility, no transcoding surprises at a gig, and file sizes are manageable. AIFF/WAV take up ~6× more space with no quality benefit when sourcing from SoundCloud or YouTube.
+**DDJ-FLX4 note:** The FLX4 is a rekordbox controller, meaning audio plays through rekordbox on your laptop rather than being read directly from a USB stick by the hardware. Rekordbox handles format decoding, so it supports a wider range of formats than a standalone CDJ. In practice, MP3 320kbps is still the best choice: universal compatibility if you ever play on other gear, no surprises at a gig, and file sizes stay manageable. WAV/AIFF give you no quality benefit at ~6x the file size when sourcing from SoundCloud or YouTube.
 
-Use `--native-format` if you want the raw stream (m4a/webm) instead.
+Use `--native-format` if you want the raw stream (m4a or webm) instead of transcoding.
+
+---
 
 ### The YouTube Fallback Tradeoff
 
-The YouTube fallback triggers when a SoundCloud track is unavailable (DRM, deleted, private) **or when SoundCloud rate-limits the request** after all retries are exhausted. This means downloads keep flowing even during a 429 throttle window instead of stopping and requiring a rerun.
+The YouTube fallback triggers when a SoundCloud track is unavailable (DRM, deleted, private) or when SoundCloud rate-limits the request after all retries are exhausted. Downloads keep flowing instead of stopping mid-run.
 
 YouTube fallback has two extra risks:
 
-1. **Double transcode** — many YouTube uploads were already compressed before upload, so you're downloading a compressed version of a compressed file.
-2. **Wrong version** — YouTube search results are less precise than SoundCloud. The fallback may find a live recording, remix, or cover instead of the studio version.
+1. **Double transcode** -- many YouTube uploads were already compressed before they were uploaded. You are downloading a compressed version of a compressed file. The quality loss compounds.
+2. **Wrong version** -- YouTube search is less precise than SoundCloud. The fallback may find a live recording, remix, or cover instead of the studio version.
 
-Tracks sourced from YouTube are marked `[yt]` in the log output. After a run, audit any `[yt]` entries before adding them to a high-stakes set.
-
+Tracks sourced from YouTube are marked `[yt]` in the log output. Audit them before adding to a high-stakes set.
 ---
 
 ## Using with Rekordbox

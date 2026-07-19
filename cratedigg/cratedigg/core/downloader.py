@@ -368,11 +368,18 @@ def _worker(
         except RateLimitError:
             raise
         except Exception as exc:
-            err = format_error_for_display(str(exc))
+            err_str = str(exc).strip()
+            if classify_download_error(err_str) == "unavailable" and settings.yt_fallback:
+                log(f"{tag} {SYM_WARN} SC unavailable ({shorten_error_message(err_str, 50)}) — trying YouTube")
+                return _yt_fallback(
+                    row_index, row_id, row, output_dir, settings,
+                    tag, label, expected_s, artist, track,
+                )
+            err = format_error_for_display(err_str)
             log(f"{tag} {SYM_FAIL} search   {label}\n         {err}")
             return RowResult(
                 row_index=row_index, status=STATUS_ERROR,
-                attempted_at=utc_now(), error_message=str(exc).strip()[:400],
+                attempted_at=utc_now(), error_message=err_str[:400],
             )
 
         picked = choose_candidate(

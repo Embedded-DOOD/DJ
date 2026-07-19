@@ -103,6 +103,8 @@ _AUTH_PATTERNS = (
     "sign in",
     "authentication required",
     "not logged in",
+    "could not copy",
+    "cookie database",
 )
 _NETWORK_PATTERNS = (
     "connection reset",

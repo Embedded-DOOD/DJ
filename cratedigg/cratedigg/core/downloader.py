@@ -395,11 +395,14 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
         row = rows[row_index]
         status = (row.get("download_status") or "").strip().lower()
 
-        if status == STATUS_ERROR and classify_download_error(
-            row.get("error_message") or ""
-        ) == "rate_limit":
-            row["download_status"] = STATUS_RETRY
-            status = STATUS_RETRY
+        # Promote transient errors to retry so they're attempted again next run.
+        # Only "unavailable" (deleted/private track) and "format" are permanent skips.
+        _RETRYABLE = {"rate_limit", "auth", "network", "unknown"}
+        if status == STATUS_ERROR:
+            category = classify_download_error(row.get("error_message") or "")
+            if category in _RETRYABLE:
+                row["download_status"] = STATUS_RETRY
+                status = STATUS_RETRY
 
         if status == STATUS_ERROR and not settings.force_redownload:
             auto_skipped += 1

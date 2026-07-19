@@ -127,9 +127,9 @@ python main.py input/my_playlist.csv --force-redownload
 
 | Flag | Description |
 |---|---|
-| `csv PATH` | Single Exportify CSV file (positional argument) |
-| `--csv-folder DIR` | Process all CSV files in a folder |
-| `--sc-playlist URL` | Download a SoundCloud playlist, set, or user page directly — no CSV needed |
+| `csv PATH` | Path to a single Exportify CSV file — the playlist you want to download. |
+| `--csv-folder DIR` | Path to a folder containing multiple Exportify CSVs. cratedigg processes every `.csv` in the folder in sequence, one playlist at a time. |
+| `--sc-playlist URL` | A SoundCloud URL to download directly — a playlist, a set, or a user's full library. Skips Spotify entirely; no CSV needed. |
 
 ---
 
@@ -137,9 +137,9 @@ python main.py input/my_playlist.csv --force-redownload
 
 | Flag | Default | Description |
 |---|---|---|
-| `--output-dir DIR` | `./output` | Root folder for downloaded audio. Pass `D:\` to send directly to a USB drive. |
-| `--work-dir DIR` | `./work` | Where resumable work-state CSVs are stored (auto-managed — don't edit) |
-| `--input-dir DIR` | `./input` | Folder scanned when using `--csv-folder` without a path |
+| `--output-dir DIR` | `./output` | Where downloaded audio files land. cratedigg creates one subfolder per playlist inside this directory. Pass `D:\` to write directly to a USB drive — files go to `D:\my_playlist\`. |
+| `--work-dir DIR` | `./work` | Where cratedigg keeps its internal `_work.csv` files. These track which tracks have been downloaded, which failed, and which are still pending. Don't edit these manually. |
+| `--input-dir DIR` | `./input` | The folder cratedigg looks in when you use `--csv-folder` without specifying a path. Drop your Exportify CSVs here and run `--csv-folder` to process all of them. |
 
 ---
 
@@ -147,9 +147,9 @@ python main.py input/my_playlist.csv --force-redownload
 
 | Flag | Default | Description |
 |---|---|---|
-| `--cookies-from-browser BROWSER` | — | Read your SoundCloud session from an installed browser: `chrome`, `firefox`, `edge`, `brave`. **Required for Go+ quality.** |
-| `--cookies-file FILE` | — | Netscape-format `cookies.txt` alternative to browser extraction |
-| `--mp3` | off | Transcode output to MP3 320kbps. Default preserves native SoundCloud format (AAC with Go+). |
+| `--cookies-from-browser BROWSER` | — | Tells cratedigg to read your SoundCloud login session from your browser's local cookie store. SoundCloud uses this to confirm you're a Go+ subscriber, unlocking 256kbps AAC or original-upload quality instead of 128kbps MP3. Supported values: `chrome`, `firefox`, `edge`, `brave`. You must be logged into SoundCloud in that browser. |
+| `--cookies-file FILE` | — | An alternative to `--cookies-from-browser`. Export your SoundCloud cookies to a Netscape-format `cookies.txt` file using a browser extension (e.g. "Get cookies.txt LOCALLY"), then pass the file path here. Useful if browser extraction doesn't work on your system. |
+| `--mp3` | off | Forces all downloads to be transcoded to MP3 at 320kbps, regardless of what format SoundCloud provides. By default cratedigg keeps the native format — AAC (`.m4a`) with Go+, which is higher quality than MP3 at the same bitrate. Only use `--mp3` if your software or hardware requires it (e.g. some older DJ controllers). |
 
 ---
 
@@ -157,10 +157,10 @@ python main.py input/my_playlist.csv --force-redownload
 
 | Flag | Default | Description |
 |---|---|---|
-| `--workers N` | `3` | Number of parallel download threads |
-| `--resolve-only` | off | Find and score SoundCloud matches, save to work CSV, skip actual download. Good for a first-pass review. |
-| `--force-redownload` | off | Re-download rows already marked as complete |
-| `--limit N` | `0` (all) | Stop after N rows — useful for testing |
+| `--workers N` | `3` | How many tracks to download at the same time. Higher values are faster but increase the chance of SoundCloud rate-limiting you. `3` is a safe default for most connections. |
+| `--resolve-only` | off | Searches SoundCloud for matches and saves results to the work CSV, but does not download any audio. Useful as a first pass to preview what was found and what couldn't be matched before committing to a full download. |
+| `--force-redownload` | off | Re-downloads every track, even ones already marked complete in the work CSV. Use this if you want to replace existing files (e.g. switching from free-tier quality to Go+). |
+| `--limit N` | `0` (all) | Stops after downloading N tracks. Useful for testing that the tool is working before committing to a full playlist run. `0` means no limit — process everything. |
 
 ---
 
@@ -168,21 +168,23 @@ python main.py input/my_playlist.csv --force-redownload
 
 | Flag | Default | Description |
 |---|---|---|
-| `--duration-tolerance SEC` | `10` | Maximum allowed duration difference (seconds) between the Spotify track and a SoundCloud candidate. Increase if legitimate matches are being skipped. |
-| `--search-results N` | `6` | Number of SoundCloud candidates to score per track. Higher values find more obscure matches but are slower. |
-| `--id-order` | `priority` | Row processing order: `priority` (new first, then retries) · `ascending` (by row ID) · `descending` · `default` (CSV order) |
+| `--duration-tolerance SEC` | `10` | How many seconds of duration difference is allowed between the Spotify track and a SoundCloud result before cratedigg rejects the match. For example, a 3:45 Spotify track matched to a 3:52 SoundCloud result (7 seconds off) would pass with the default of 10. Raise this if legitimate matches are being missed; lower it if you're getting wrong tracks. |
+| `--search-results N` | `6` | How many SoundCloud search results cratedigg scores per track before picking the best one. More candidates means a better chance of finding obscure tracks, but each extra candidate costs a small amount of time. `6` is a good balance. |
+| `--id-order` | `priority` | Controls which tracks are processed first. `priority` handles new tracks before retrying failed ones — good for resuming interrupted runs. `ascending` and `descending` go by row number. `default` follows the original CSV order. |
 
 ---
 
 ### Rate Limiting
 
+These options help avoid getting temporarily blocked by SoundCloud for making too many requests too fast.
+
 | Flag | Default | Description |
 |---|---|---|
-| `--sleep-requests SEC` | `1.1` | Delay between yt-dlp requests to avoid SoundCloud rate limits |
-| `--sleep-interval SEC` | `0.0` | Minimum sleep between downloads |
-| `--max-sleep-interval SEC` | `0.0` | Maximum sleep between downloads (enables jitter when > 0) |
-| `--limit-rate RATE` | — | Cap download bandwidth, e.g. `4M` for 4 MB/s |
-| `--throttled-rate RATE` | — | yt-dlp throttled-rate fallback, e.g. `50K` |
+| `--sleep-requests SEC` | `1.1` | Pause (in seconds) between each request to SoundCloud. The default of 1.1 seconds is conservative and generally avoids rate-limit errors. Lower it to go faster at the risk of getting blocked; raise it if you're seeing `rate_limit` errors. |
+| `--sleep-interval SEC` | `0.0` | Minimum pause between finishing one download and starting the next. Set to a positive value (e.g. `2.0`) if SoundCloud starts throttling individual downloads. |
+| `--max-sleep-interval SEC` | `0.0` | When set above `--sleep-interval`, cratedigg picks a random wait time between the two values. This randomness makes the download pattern look less like a bot to SoundCloud's servers. |
+| `--limit-rate RATE` | — | Caps how fast each file downloads. For example, `4M` limits to 4 MB/s. Useful if you're on a shared connection and don't want cratedigg to saturate your bandwidth. |
+| `--throttled-rate RATE` | — | If SoundCloud detects a download and throttles it below this threshold (e.g. `50K`), yt-dlp will abort and retry. Helps avoid silently downloading at degraded speeds. |
 
 ---
 

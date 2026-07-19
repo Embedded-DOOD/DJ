@@ -10,17 +10,35 @@ Usage:
     python main.py playlist.csv --cookies-from-browser chrome
     python main.py ./exportify_csvs/ --csv-folder
     python main.py playlist.csv --resolve-only
+
+Config file (cratedigg.cfg in the same directory as main.py):
+    [defaults]
+    output_dir = D:\\
+    cookies_file = sc_cookies.txt
+    cookies_from_browser = chrome
 """
 
 from __future__ import annotations
 
 import argparse
+import configparser
 import sys
 from pathlib import Path
 
 from cratedigg.core.csv_work_state import prepare_work_csv, prepare_sc_playlist_csv
 from cratedigg.core.downloader import RunSettings, run
 from cratedigg.core.sc_interface import extract_sc_playlist
+
+_CFG_FILE = Path(__file__).parent / "cratedigg.cfg"
+
+
+def _load_cfg_defaults() -> dict:
+    """Read [defaults] from cratedigg.cfg if present. Returns a plain dict."""
+    if not _CFG_FILE.exists():
+        return {}
+    cfg = configparser.ConfigParser()
+    cfg.read(_CFG_FILE, encoding="utf-8")
+    return dict(cfg["defaults"]) if cfg.has_section("defaults") else {}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -174,7 +192,21 @@ def handle_sc_playlist(args: argparse.Namespace, settings: RunSettings) -> int:
 
 
 def main() -> int:
+    cfg = _load_cfg_defaults()
     parser = build_parser()
+
+    # Apply config file values as argparse defaults (CLI flags still override).
+    if cfg:
+        overrides = {}
+        if "output_dir" in cfg:
+            overrides["output_dir"] = Path(cfg["output_dir"])
+        if "cookies_file" in cfg:
+            overrides["cookies_file"] = Path(cfg["cookies_file"])
+        if "cookies_from_browser" in cfg:
+            overrides["cookies_from_browser"] = cfg["cookies_from_browser"]
+        if overrides:
+            parser.set_defaults(**overrides)
+
     args = parser.parse_args()
     settings = make_settings(args)
 

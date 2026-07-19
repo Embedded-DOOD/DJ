@@ -11,6 +11,7 @@ Key differences from ExportifyDownloader's yt_dlp_interface:
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
@@ -87,6 +88,9 @@ def _extract_thumbnail_url(info: Dict) -> Optional[str]:
     return None
 
 
+_RATE_LIMIT_BACKOFF = (30, 60, 120)  # seconds to wait on successive 429s
+
+
 def search_soundcloud(
     query: str,
     limit: int,
@@ -98,7 +102,11 @@ def search_soundcloud(
     sleep_interval: float = 0.0,
     max_sleep_interval: float = 0.0,
 ) -> List[Dict[str, object]]:
-    """Search SoundCloud and return up to `limit` candidate dicts."""
+    """Search SoundCloud and return up to `limit` candidate dicts.
+
+    Retries up to 3 times with increasing backoff on 429 rate limits
+    before raising RateLimitError to the caller.
+    """
     search_url = f"scsearch{limit}:{query}"
     options = build_ydl_options(
         cookies_from_browser, cookies_file, sleep_requests,
@@ -106,14 +114,25 @@ def search_soundcloud(
     )
     options["playlistend"] = limit
 
-    try:
-        with YoutubeDL(options) as ydl:
-            payload = ydl.extract_info(search_url, download=False)
-    except DownloadError as exc:
-        message = clean_yt_dlp_error(str(exc).strip()) or "SoundCloud search failed"
-        if classify_download_error(message) == "rate_limit":
-            raise RateLimitError(message) from exc
-        raise RuntimeError(message) from exc
+    last_exc: Exception = RuntimeError("SoundCloud search failed")
+    for attempt, backoff in enumerate((*_RATE_LIMIT_BACKOFF, None), start=1):
+        try:
+            with YoutubeDL(options) as ydl:
+                payload = ydl.extract_info(search_url, download=False)
+            break  # success
+        except DownloadError as exc:
+            message = clean_yt_dlp_error(str(exc).strip()) or "SoundCloud search failed"
+            if classify_download_error(message) == "rate_limit":
+                last_exc = RateLimitError(message)
+                if backoff is not None:
+                    from .utils import log, SYM_WARN
+                    log(f"  {SYM_WARN} Rate limited — waiting {backoff}s before retry ({attempt}/{len(_RATE_LIMIT_BACKOFF)})...")
+                    time.sleep(backoff)
+                    continue
+                raise RateLimitError(message) from exc
+            raise RuntimeError(message) from exc
+    else:
+        raise last_exc
 
     entries = payload.get("entries") if isinstance(payload, dict) else None
     if not isinstance(entries, list):

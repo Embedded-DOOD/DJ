@@ -96,6 +96,8 @@ _UNAVAILABLE_PATTERNS = (
     "http error 404",
     "this playlist is private",
     "unable to download webpage",
+    "drm protected",
+    "this video is drm",
 )
 _AUTH_PATTERNS = (
     "login required",

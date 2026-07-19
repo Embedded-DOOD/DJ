@@ -369,7 +369,10 @@ def _worker(
             raise
         except Exception as exc:
             err_str = str(exc).strip()
-            if classify_download_error(err_str) == "unavailable" and settings.yt_fallback:
+            err_cat = classify_download_error(err_str)
+            if err_cat == "rate_limit":
+                raise RateLimitError(err_str)
+            if err_cat == "unavailable" and settings.yt_fallback:
                 log(f"{tag} {SYM_WARN} SC unavailable ({shorten_error_message(err_str, 50)}) — trying YouTube")
                 return _yt_fallback(
                     row_index, row_id, row, output_dir, settings,

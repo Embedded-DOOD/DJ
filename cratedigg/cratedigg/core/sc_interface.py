@@ -88,7 +88,7 @@ def _extract_thumbnail_url(info: Dict) -> Optional[str]:
     return None
 
 
-_RATE_LIMIT_BACKOFF = (30, 60, 120)  # seconds to wait on successive 429s
+_RATE_LIMIT_BACKOFF = (5,)  # one short retry before raising to caller (YouTube fallback handles the rest)
 
 
 def search_soundcloud(
@@ -104,8 +104,8 @@ def search_soundcloud(
 ) -> List[Dict[str, object]]:
     """Search SoundCloud and return up to `limit` candidate dicts.
 
-    Retries up to 3 times with increasing backoff on 429 rate limits
-    before raising RateLimitError to the caller.
+    Retries once with a short backoff on 429 before raising RateLimitError.
+    The caller's YouTube fallback handles persistent rate limiting.
     """
     search_url = f"scsearch{limit}:{query}"
     options = build_ydl_options(
@@ -120,13 +120,13 @@ def search_soundcloud(
             with YoutubeDL(options) as ydl:
                 payload = ydl.extract_info(search_url, download=False)
             break  # success
-        except DownloadError as exc:
-            message = clean_yt_dlp_error(str(exc).strip()) or "SoundCloud search failed"
+        except Exception as exc:
+            message = clean_yt_dlp_error(str(exc).strip()) or str(exc).strip()
             if classify_download_error(message) == "rate_limit":
                 last_exc = RateLimitError(message)
                 if backoff is not None:
                     from .utils import log, SYM_WARN
-                    log(f"  {SYM_WARN} Rate limited — waiting {backoff}s before retry ({attempt}/{len(_RATE_LIMIT_BACKOFF)})...")
+                    log(f"  {SYM_WARN} Rate limited — waiting {backoff}s before retry...")
                     time.sleep(backoff)
                     continue
                 raise RateLimitError(message) from exc

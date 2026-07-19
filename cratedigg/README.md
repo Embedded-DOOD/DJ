@@ -281,16 +281,36 @@ Both are **lossy** formats — they discard audio information the codec deems in
 
 **AAC** (1997) uses a more modern compression algorithm. It achieves the same perceived quality as MP3 at a lower bitrate — 256kbps AAC is generally considered audibly equivalent to 320kbps MP3. AAC is the native format for Apple devices, SoundCloud Go+, YouTube, and most streaming services.
 
-**For DJing specifically:** the format that matters most is what you're playing on. Rekordbox, Serato, and Traktor all handle both natively. If your DJ controller or CDJ reads from a USB drive, check whether it supports `.m4a` (AAC) — most Pioneer hardware does, but some older gear only reads MP3.
+### Output Format: Why MP3 320kbps?
+
+cratedigg transcodes all downloads to **MP3 320kbps** by default. Here's why this is the right call for a DJ library:
+
+**SoundCloud Go+ delivers 256kbps AAC.** Converting that to AIFF or WAV doesn't recover lost data — the source is already lossy. A larger file at "lossless" format doesn't mean better quality when the input wasn't lossless.
+
+**MP3 320kbps is the universal format for DJ hardware.** Every controller, CDJ, and media player ever made reads it without issue.
+
+| Format | DDJ-FLX4 | CDJ-2000NXS2 | Older CDJs | File Size (4min track) |
+|---|---|---|---|---|
+| **MP3 320kbps** | ✅ | ✅ | ✅ | ~9MB |
+| AAC/M4A 256kbps | ✅ (via rekordbox) | ✅ | ⚠️ Some models only | ~7MB |
+| WAV / AIFF | ✅ (via rekordbox) | ✅ | ✅ | ~50MB |
+| WebM / Opus | ✅ (via rekordbox) | ❌ | ❌ | ~6MB |
+| FLAC | ✅ (via rekordbox) | ✅ | ❌ | ~25MB |
+
+**DDJ-FLX4 note:** The FLX4 is a rekordbox controller — audio plays through rekordbox on your laptop, not read natively from the controller. This means rekordbox handles format decoding, so in theory it supports everything rekordbox supports. In practice, MP3 320kbps is still the best choice: universal compatibility, no transcoding surprises at a gig, and file sizes are manageable. AIFF/WAV take up ~6× more space with no quality benefit when sourcing from SoundCloud or YouTube.
+
+Use `--native-format` if you want the raw stream (m4a/webm) instead.
 
 ### The YouTube Fallback Tradeoff
 
-The YouTube fallback exists for tracks that are genuinely unavailable on SoundCloud (DRM, deleted, private). YouTube quality is usually acceptable but has two extra risks:
+The YouTube fallback triggers when a SoundCloud track is unavailable (DRM, deleted, private) **or when SoundCloud rate-limits the request** after all retries are exhausted. This means downloads keep flowing even during a 429 throttle window instead of stopping and requiring a rerun.
+
+YouTube fallback has two extra risks:
 
 1. **Double transcode** — many YouTube uploads were already compressed before upload, so you're downloading a compressed version of a compressed file.
 2. **Wrong version** — YouTube search results are less precise than SoundCloud. The fallback may find a live recording, remix, or cover instead of the studio version.
 
-After a run, check the `output_format` column in your work CSV and audit any `[yt]` entries before adding them to a high-stakes set.
+Tracks sourced from YouTube are marked `[yt]` in the log output. After a run, audit any `[yt]` entries before adding them to a high-stakes set.
 
 ---
 

@@ -621,7 +621,7 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
             future = executor.submit(
                 _worker, row_index, dict(rows[row_index]), output_dir, settings, tag
             )
-            active[future] = row_index
+            active[future] = (row_index, tag)
             return True
 
         # Fill up to max_workers initially.
@@ -632,29 +632,39 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
         while active:
             # as_completed on a snapshot; process one result then refill.
             done = next(iter(as_completed(list(active))))
-            ri = active.pop(done)
+            ri, tag = active.pop(done)
             row = rows[ri]
             track  = (row.get("Track Name") or "?").strip()
             artist = first_artist(row.get("Artist Name(s)") or "?")
             rid    = _row_id_value(row) or (ri + 1)
 
+            result: Optional[RowResult] = None
             try:
-                result: RowResult = done.result()
+                result = done.result()
             except RateLimitError as exc:
-                rate_limited_flag = True
-                err = format_error_for_display(str(exc))
-                log(f"  {SYM_WARN} Rate limited — stopping new submissions. Marked for retry.\n    {err}")
-                row["download_status"] = STATUS_RETRY
-                row["attempted_at"]    = utc_now()
-                row["error_message"]   = str(exc).strip()[:400]
-                counters["rate_limited"] += 1
-                counters["errors"] += 1
-                failures.append(FailedRow(rid, artist, track, STATUS_RETRY,
-                                          "rate limited — rerun later"))
-                completed += 1
-                flush_csv()
-                # Do NOT submit more work; drain remaining active futures.
-                continue
+                if settings.yt_fallback:
+                    label = f"{artist} - {track}"
+                    dur_str = (row.get("Track Duration (ms)") or "").strip()
+                    expected_s = int(dur_str) // 1000 if dur_str.isdigit() else 0
+                    log(f"{tag} {SYM_WARN} SC rate limited — trying YouTube  [{label}]")
+                    result = _yt_fallback(
+                        ri, rid, row, output_dir, settings,
+                        tag, label, expected_s, artist, track,
+                    )
+                else:
+                    rate_limited_flag = True
+                    err = format_error_for_display(str(exc))
+                    log(f"  {SYM_WARN} Rate limited — stopping new submissions. Marked for retry.\n    {err}")
+                    row["download_status"] = STATUS_RETRY
+                    row["attempted_at"]    = utc_now()
+                    row["error_message"]   = str(exc).strip()[:400]
+                    counters["rate_limited"] += 1
+                    counters["errors"] += 1
+                    failures.append(FailedRow(rid, artist, track, STATUS_RETRY,
+                                              "rate limited — rerun later"))
+                    completed += 1
+                    flush_csv()
+                    continue
             except Exception as exc:
                 err = format_error_for_display(str(exc))
                 row["download_status"] = STATUS_ERROR
@@ -663,7 +673,8 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
                 counters["errors"] += 1
                 failures.append(FailedRow(rid, artist, track, STATUS_ERROR, err))
                 completed += 1
-            else:
+
+            if result is not None:
                 _apply_result(row, result)
                 if result.status == STATUS_DOWNLOADED:
                     counters["downloaded"] += 1

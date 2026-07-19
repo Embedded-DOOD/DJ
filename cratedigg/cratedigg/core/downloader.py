@@ -16,6 +16,7 @@ Design principles vs ExportifyDownloader:
 
 from __future__ import annotations
 
+import os
 import signal
 import sys
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
@@ -589,7 +590,7 @@ def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None
         if ex is not None:
             ex.shutdown(wait=False, cancel_futures=True)
         signal.signal(signal.SIGINT, original_sigint)
-        sys.exit(1)
+        os._exit(1)
 
     signal.signal(signal.SIGINT, _sigint_handler)
 

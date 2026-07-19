@@ -114,6 +114,7 @@ class RunSettings:
     id_order: str = "priority"
     cookies_from_browser: str = ""
     cookies_file: Optional[Path] = None
+    ffmpeg_path: str = ""
     yt_fallback: bool = True
 
 
@@ -123,6 +124,7 @@ def _ydl_kwargs(s: RunSettings) -> Dict:
     return dict(
         cookies_from_browser=s.cookies_from_browser,
         cookies_file=s.cookies_file,
+        ffmpeg_path=s.ffmpeg_path,
         sleep_requests=s.sleep_requests,
         limit_rate=s.limit_rate,
         throttled_rate=s.throttled_rate,

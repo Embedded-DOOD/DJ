@@ -68,6 +68,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sleep-interval", type=float, default=0.0)
     parser.add_argument("--max-sleep-interval", type=float, default=0.0)
 
+    parser.add_argument("--no-yt-fallback", action="store_true",
+                        help="Disable YouTube fallback for tracks unavailable on SoundCloud.")
+
     # Directories
     parser.add_argument("--input-dir", type=Path, default=Path("input"), metavar="DIR",
                         help="Where to look for Exportify CSVs with --csv-folder (default: ./input).")
@@ -103,6 +106,7 @@ def make_settings(args: argparse.Namespace) -> RunSettings:
         id_order=args.id_order,
         cookies_from_browser=args.cookies_from_browser,
         cookies_file=args.cookies_file,
+        yt_fallback=not args.no_yt_fallback,
     )
 
 

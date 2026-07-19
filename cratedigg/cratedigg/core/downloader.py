@@ -39,6 +39,7 @@ from .sc_interface import (
     download_audio,
     search_soundcloud,
 )
+from .yt_interface import search_youtube
 from .utils import (
     DIVIDER,
     SYM_ARROW,
@@ -112,6 +113,7 @@ class RunSettings:
     id_order: str = "priority"
     cookies_from_browser: str = ""
     cookies_file: Optional[Path] = None
+    yt_fallback: bool = True
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -198,6 +200,130 @@ def _tag(n: int, total: int) -> str:
     return f"[{n:0{w}d}/{total}]"
 
 
+# ── YouTube fallback (runs in worker thread) ─────────────────────────────────
+
+def _yt_fallback(
+    row_index: int,
+    row_id: int,
+    row: Dict[str, str],
+    output_dir: Path,
+    settings: RunSettings,
+    tag: str,
+    label: str,
+    expected_s: int,
+    artist: str,
+    track: str,
+) -> RowResult:
+    """Attempt to find and download a track from YouTube after SoundCloud fails."""
+    kwargs = _ydl_kwargs(settings)
+
+    log(f"{tag}   search   {label}  [yt fallback]")
+    try:
+        candidates = search_youtube(
+            f"{artist} {track}", settings.search_results, **kwargs
+        )
+    except RateLimitError:
+        raise
+    except Exception as exc:
+        err = format_error_for_display(str(exc))
+        log(f"{tag} {SYM_FAIL} yt search {label}\n         {err}")
+        return RowResult(
+            row_index=row_index, status=STATUS_UNRESOLVED,
+            attempted_at=utc_now(),
+            error_message=f"[yt] {str(exc).strip()[:400]}",
+        )
+
+    picked = choose_candidate(
+        candidates, expected_s, artist, track, settings.duration_tolerance
+    )
+    if picked is None:
+        log(f"{tag} {SYM_MISS} no match {label}  [yt]")
+        return RowResult(
+            row_index=row_index, status=STATUS_UNRESOLVED,
+            attempted_at=utc_now(),
+            error_message=f"No YouTube match within {settings.duration_tolerance}s",
+        )
+
+    candidate, delta = picked
+    url           = str(candidate.get("webpage_url") or "").strip()
+    matched_title = str(candidate.get("title") or "").strip()
+    cand_dur      = candidate.get("duration")
+    sel_dur       = str(cand_dur) if isinstance(cand_dur, int) else ""
+    delta_s       = str(delta)
+
+    if not url:
+        return RowResult(
+            row_index=row_index, status=STATUS_UNRESOLVED,
+            attempted_at=utc_now(), error_message="[yt] Matched candidate missing URL",
+        )
+
+    log(f"{tag} {SYM_ARROW} matched  {label}  →  {shorten_error_message(matched_title, 60)}  (Δ{delta}s) [yt]")
+
+    if not settings.download_enabled:
+        return RowResult(
+            row_index=row_index, status=STATUS_RESOLVED,
+            source_url=url, matched_title=matched_title,
+            selected_duration_s=sel_dur, duration_delta_s=delta_s,
+            attempted_at=utc_now(),
+        )
+
+    base_name = stable_base_name(row_id, artist, track)
+    output_template = str(output_dir / f"{base_name}.%(ext)s")
+    log(f"{tag}   fetch    {label}  [yt]")
+
+    try:
+        saved_file, thumbnail_url = download_audio(
+            url, output_template, prefer_mp3=settings.prefer_mp3, **kwargs
+        )
+    except RateLimitError:
+        raise
+    except Exception as exc:
+        err = format_error_for_display(str(exc))
+        log(f"{tag} {SYM_FAIL} yt fetch {label}\n         {err}")
+        return RowResult(
+            row_index=row_index, status=STATUS_ERROR,
+            source_url=url, matched_title=matched_title,
+            selected_duration_s=sel_dur, duration_delta_s=delta_s,
+            attempted_at=utc_now(), error_message=f"[yt] {str(exc).strip()[:400]}",
+        )
+
+    if saved_file is None:
+        msg = "[yt] Download completed but output file not found on disk"
+        log(f"{tag} {SYM_FAIL} yt fetch {label}\n         [error] {msg}")
+        return RowResult(
+            row_index=row_index, status=STATUS_ERROR,
+            source_url=url, matched_title=matched_title,
+            selected_duration_s=sel_dur, duration_delta_s=delta_s,
+            attempted_at=utc_now(), error_message=msg,
+        )
+
+    artwork_status = ""
+    cover: Optional[str] = thumbnail_url if thumbnail_url else None
+    try:
+        embed_audio_metadata(
+            saved_file, build_audio_metadata(row, row_id, source_url=url),
+            cover_source=cover,
+        )
+        if cover:
+            artwork_status = "embedded"
+    except Exception as exc:
+        log(f"{tag} {SYM_WARN} metadata {label}\n         {shorten_error_message(str(exc), 100)}")
+
+    fmt = saved_file.suffix.lstrip(".")
+    log(f"{tag} {SYM_OK} done     {label}  [yt {fmt}]")
+
+    return RowResult(
+        row_index=row_index, status=STATUS_DOWNLOADED,
+        source_url=url, matched_title=matched_title,
+        selected_duration_s=sel_dur, duration_delta_s=delta_s,
+        output_file=str(saved_file.resolve()),
+        output_format=fmt,
+        artwork_status=artwork_status,
+        thumbnail_url=thumbnail_url or "",
+        attempted_at=utc_now(),
+    )
+
+
 # ── Worker (runs in thread) ──────────────────────────────────────────────────
 
 def _worker(
@@ -252,6 +378,11 @@ def _worker(
             candidates, expected_s, artist, track, settings.duration_tolerance
         )
         if picked is None:
+            if settings.yt_fallback:
+                return _yt_fallback(
+                    row_index, row_id, row, output_dir, settings,
+                    tag, label, expected_s, artist, track,
+                )
             log(f"{tag} {SYM_MISS} no match {label}\n"
                 f"         no SoundCloud result within {settings.duration_tolerance}s")
             return RowResult(
@@ -297,6 +428,13 @@ def _worker(
     except RateLimitError:
         raise
     except Exception as exc:
+        err_category = classify_download_error(str(exc))
+        if err_category == "unavailable" and settings.yt_fallback:
+            log(f"{tag} {SYM_WARN} SC unavailable ({shorten_error_message(str(exc), 60)}) — trying YouTube")
+            return _yt_fallback(
+                row_index, row_id, row, output_dir, settings,
+                tag, label, expected_s, artist, track,
+            )
         err = format_error_for_display(str(exc))
         log(f"{tag} {SYM_FAIL} download {label}\n         {err}")
         return RowResult(

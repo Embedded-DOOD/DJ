@@ -254,7 +254,47 @@ Your browser must be open and logged into SoundCloud with an active Go+ subscrip
 
 ---
 
-## Rekordbox Integration
+## Audio Quality Reference
+
+Understanding the quality difference between sources helps you decide when the YouTube fallback is acceptable and when it isn't.
+
+### Source Comparison
+
+| Source | Format | Bitrate | Notes |
+|---|---|---|---|
+| **SoundCloud Go+** | AAC (.m4a) | 256kbps | Or original upload — could be lossless WAV/FLAC |
+| SoundCloud free | MP3 | 128kbps | Noticeably degraded at high volume |
+| YouTube (free) | AAC / Opus | 128–160kbps | Varies by upload; often a transcode of a transcode |
+| YouTube Premium | AAC | Up to 256kbps | Rare to actually reach this ceiling |
+
+### What the Numbers Mean for DJing
+
+- **128kbps** — audible compression artifacts on kick drums and hi-hats when played loud through a PA. Most experienced ears can hear the difference on a decent system.
+- **256kbps AAC** — effectively transparent to most listeners. AAC is a more efficient codec than MP3, so 256kbps AAC sounds roughly equivalent to MP3 at 320kbps.
+- **Original upload** (Go+, some tracks) — best case. Some artists upload WAV or FLAC directly to SoundCloud. You get exactly what they uploaded, with no lossy compression at all.
+
+### AAC vs MP3 — What's the Difference?
+
+Both are **lossy** formats — they discard audio information the codec deems inaudible to save space. The difference is in *how efficiently* they do it:
+
+**MP3** (1993) is the older standard. At 128kbps it sounds noticeably compressed — smeared stereo image, artifacts on transients. At 320kbps it's good but still technically lossy.
+
+**AAC** (1997) uses a more modern compression algorithm. It achieves the same perceived quality as MP3 at a lower bitrate — 256kbps AAC is generally considered audibly equivalent to 320kbps MP3. AAC is the native format for Apple devices, SoundCloud Go+, YouTube, and most streaming services.
+
+**For DJing specifically:** the format that matters most is what you're playing on. Rekordbox, Serato, and Traktor all handle both natively. If your DJ controller or CDJ reads from a USB drive, check whether it supports `.m4a` (AAC) — most Pioneer hardware does, but some older gear only reads MP3.
+
+### The YouTube Fallback Tradeoff
+
+The YouTube fallback exists for tracks that are genuinely unavailable on SoundCloud (DRM, deleted, private). YouTube quality is usually acceptable but has two extra risks:
+
+1. **Double transcode** — many YouTube uploads were already compressed before upload, so you're downloading a compressed version of a compressed file.
+2. **Wrong version** — YouTube search results are less precise than SoundCloud. The fallback may find a live recording, remix, or cover instead of the studio version.
+
+After a run, check the `output_format` column in your work CSV and audit any `[yt]` entries before adding them to a high-stakes set.
+
+---
+
+
 
 1. Download your playlist with cratedigg
 2. In Rekordbox: **File → Add Folder to Collection**

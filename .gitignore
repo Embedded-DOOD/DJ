@@ -8,3 +8,5 @@ dist/
 build/
 *.csv
 !cratedigg/exportify.app/.gitkeep
+*cookies*.txt
+*.txt

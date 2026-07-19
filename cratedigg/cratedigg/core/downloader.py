@@ -343,7 +343,7 @@ def _worker(
 
 # ── Main run ─────────────────────────────────────────────────────────────────
 
-def run(csv_path: Path, settings: RunSettings) -> int:
+def run(csv_path: Path, settings: RunSettings, output_dir: Optional[Path] = None) -> int:
     csv_path = csv_path.resolve()
     if not csv_path.exists():
         print(f"{SYM_FAIL} CSV not found: {csv_path}", file=sys.stderr)
@@ -354,6 +354,10 @@ def run(csv_path: Path, settings: RunSettings) -> int:
         if not settings.cookies_file.exists():
             print(f"{SYM_FAIL} Cookies file not found: {settings.cookies_file}", file=sys.stderr)
             return 1
+
+    if not settings.cookies_from_browser and settings.cookies_file is None:
+        log(f"{SYM_WARN} No SoundCloud cookies provided — downloads will be 128kbps MP3 (free tier).")
+        log(f"  For Go+ quality (256kbps AAC / original), add: --cookies-from-browser chrome")
 
     import csv as csv_mod
     with csv_path.open("r", newline="", encoding="utf-8-sig") as f:
@@ -377,7 +381,7 @@ def run(csv_path: Path, settings: RunSettings) -> int:
     ensure_row_keys(rows)
     write_csv(csv_path, fieldnames, rows)
 
-    output_dir = csv_path.parent / playlist_stem(csv_path)
+    output_dir = (output_dir or (csv_path.parent / playlist_stem(csv_path))).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     row_order = _processing_order(rows, settings.id_order)

@@ -6,6 +6,8 @@
 
 cratedigg takes an Exportify CSV (your Spotify playlist) and downloads each track from SoundCloud instead of YouTube Music. With SoundCloud Go+, you get 256kbps AAC or the artist's original upload. It can also download SoundCloud playlists and sets directly without any Spotify CSV at all.
 
+> **SoundCloud Go+ is strongly recommended.** Without it, SoundCloud serves 128kbps MP3 — no better than a YouTube rip. Go+ unlocks 256kbps AAC and original-quality uploads. See [SoundCloud Go+](https://soundcloud.com/go).
+
 ---
 
 ## How It Works
@@ -43,7 +45,7 @@ flowchart TD
 
 ## Quick Start
 
-**Prerequisites:** Python 3.10+, ffmpeg on PATH (see below)
+**Prerequisites:** Python 3.10+, ffmpeg on PATH (see below), [SoundCloud Go+](https://soundcloud.com/go) subscription
 
 ```powershell
 # 1. Install dependencies
@@ -55,31 +57,43 @@ Expand-Archive "$env:TEMP\ffmpeg.zip" -DestinationPath "$env:TEMP\ffmpeg"
 Copy-Item (Get-ChildItem "$env:TEMP\ffmpeg" -Recurse -Filter "ffmpeg.exe" | Select -First 1).FullName -Destination "."
 Copy-Item (Get-ChildItem "$env:TEMP\ffmpeg" -Recurse -Filter "ffprobe.exe" | Select -First 1).FullName -Destination "."
 
-# 3. Run
+# 3. Export your Spotify playlist (see below), then run
 python main.py my_playlist.csv
 ```
 
 ---
 
-## Common Commands
+## Getting Your Spotify CSV
+
+cratedigg uses [Exportify](https://exportify.app) to get your Spotify playlist data.
+
+1. Go to **[exportify.app](https://exportify.app)**
+2. Click **Log in with Spotify** and authorize the app
+3. Your playlists appear as a list — find the one you want
+4. Click **Export** next to it → a `.csv` file downloads automatically
+5. Place the `.csv` file in the `input/` folder — cratedigg will find it automatically
+
+> **Tip:** You can export multiple playlists and put them all in `input/`, then run `python main.py --csv-folder input/` to process them all in one go.
+
+---
 
 ### Spotify playlist (via Exportify CSV)
 
 ```powershell
-# Export your playlist from https://exportify.app, then:
-python main.py my_playlist.csv
+# Drop CSV in input/, then run from the cratedigg/ directory:
+python main.py input/my_playlist.csv
 
 # Best quality — unlock Go+ streams via browser cookies
-python main.py my_playlist.csv --cookies-from-browser chrome
+python main.py input/my_playlist.csv --cookies-from-browser chrome
 
 # Force MP3 output instead of native format
-python main.py my_playlist.csv --mp3 --cookies-from-browser chrome
+python main.py input/my_playlist.csv --mp3 --cookies-from-browser chrome
 
-# Process all CSVs in a folder
-python main.py --csv-folder D:\playlists\
+# Process all CSVs in the input/ folder at once
+python main.py --csv-folder input/
 
 # Preview matches without downloading (useful first pass)
-python main.py my_playlist.csv --resolve-only
+python main.py input/my_playlist.csv --resolve-only
 ```
 
 ### SoundCloud playlist direct
@@ -99,10 +113,10 @@ python main.py --sc-playlist "https://soundcloud.com/username/likes" --cookies-f
 
 ```powershell
 # Rerun — already-downloaded rows are skipped automatically
-python main.py my_playlist.csv
+python main.py input/my_playlist.csv
 
 # Force re-download everything
-python main.py my_playlist.csv --force-redownload
+python main.py input/my_playlist.csv --force-redownload
 ```
 
 ---
@@ -114,6 +128,9 @@ python main.py my_playlist.csv --force-redownload
 | `csv` | — | Single Exportify CSV file |
 | `--csv-folder DIR` | — | Folder of CSV files (processes all) |
 | `--sc-playlist URL` | — | SoundCloud playlist/set/user URL (direct mode) |
+| `--input-dir DIR` | `./input` | Where `--csv-folder` looks by default |
+| `--output-dir DIR` | `./output` | Root folder for downloaded audio |
+| `--work-dir DIR` | `./work` | Where work-state CSVs are kept |
 | `--mp3` | off | Transcode to MP3 320kbps instead of preserving native format |
 | `--workers N` | `3` | Parallel download workers |
 | `--resolve-only` | off | Find SoundCloud matches and save to CSV without downloading |
@@ -132,19 +149,25 @@ python main.py my_playlist.csv --force-redownload
 ## Output Structure
 
 ```
-D:\
-├── my_playlist.csv              ← your Exportify source (untouched)
-├── my_playlist_work.csv         ← per-row state: status, source URL, output path
-└── my_playlist\
-    ├── 0001 - Artist - Track.m4a
-    ├── 0002 - Artist - Track.m4a
-    └── ...
+DJ/cratedigg/
+├── input/
+│   └── my_playlist.csv          ← drop Exportify CSVs here
+│
+├── output/
+│   └── my_playlist/             ← audio files, one folder per playlist
+│       ├── 0001 - Artist - Track.m4a
+│       ├── 0002 - Artist - Track.m4a
+│       └── ...
+│
+└── work/
+    └── my_playlist_work.csv     ← auto-managed state (don't edit)
 
-# SC playlist direct mode creates its own folder:
-└── username_sets_my-set\
-    ├── username_sets_my-set_work.csv
-    ├── 0001 - Artist - Track.m4a
-    └── ...
+# SC playlist direct mode:
+└── work/
+    └── username_sets_my-set_work.csv
+└── output/
+    └── username_sets_my-set/
+        └── 0001 - Artist - Track.m4a
 ```
 
 The `_work.csv` file is your resumable state. It tracks:

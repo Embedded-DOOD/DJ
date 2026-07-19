@@ -68,6 +68,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sleep-interval", type=float, default=0.0)
     parser.add_argument("--max-sleep-interval", type=float, default=0.0)
 
+    # Directories
+    parser.add_argument("--input-dir", type=Path, default=Path("input"), metavar="DIR",
+                        help="Where to look for Exportify CSVs with --csv-folder (default: ./input).")
+    parser.add_argument("--output-dir", type=Path, default=Path("output"), metavar="DIR",
+                        help="Root folder for downloaded audio (default: ./output).")
+    parser.add_argument("--work-dir", type=Path, default=Path("work"), metavar="DIR",
+                        help="Where work-state CSVs are kept (default: ./work).")
+
     # SoundCloud auth (Go+ quality)
     parser.add_argument("--cookies-from-browser", default="", metavar="BROWSER",
                         help="Browser to pull SoundCloud cookies from (e.g. chrome, firefox, edge). "
@@ -101,31 +109,43 @@ def make_settings(args: argparse.Namespace) -> RunSettings:
 def collect_csv_files(args: argparse.Namespace) -> list[Path]:
     if args.csv_folder:
         folder = args.csv_folder.resolve()
-        if not folder.is_dir():
-            print(f"Folder not found: {folder}", file=sys.stderr)
-            sys.exit(1)
-        files = sorted(
-            p for p in folder.glob("*.csv")
-            if not p.stem.lower().endswith("_work")
-        )
-        if not files:
-            print(f"No CSV files found in {folder}", file=sys.stderr)
-            sys.exit(1)
-        return files
-    return [args.csv]
+    elif hasattr(args, "csv") and args.csv is None:
+        folder = args.input_dir.resolve()
+    else:
+        return [args.csv]
+
+    if not folder.is_dir():
+        print(f"Folder not found: {folder}", file=sys.stderr)
+        sys.exit(1)
+    files = sorted(
+        p for p in folder.glob("*.csv")
+        if not p.stem.lower().endswith("_work")
+    )
+    if not files:
+        print(f"No CSV files found in {folder}", file=sys.stderr)
+        sys.exit(1)
+    return files
 
 
 def handle_sc_playlist(args: argparse.Namespace, settings: RunSettings) -> int:
     """Extract a SoundCloud playlist and download it directly."""
     import re
+    from cratedigg.core.utils import SYM_WARN
     url = args.sc_playlist.strip()
+
+    if not settings.cookies_from_browser and settings.cookies_file is None:
+        print(f"{SYM_WARN} No SoundCloud cookies provided — downloads will be 128kbps MP3 (free tier).")
+        print(f"  For Go+ quality (256kbps AAC / original), add: --cookies-from-browser chrome")
 
     # Derive a safe folder/CSV name from the URL.
     slug = re.sub(r"https?://soundcloud\.com/", "", url)
     slug = re.sub(r"[^a-zA-Z0-9_-]", "_", slug).strip("_")
     playlist_name = slug[:80] or "sc_playlist"
 
-    output_dir = Path.cwd() / playlist_name
+    work_dir = args.work_dir.resolve()
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    output_dir = args.output_dir.resolve() / playlist_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Extracting SoundCloud playlist: {url}")
@@ -145,8 +165,8 @@ def handle_sc_playlist(args: argparse.Namespace, settings: RunSettings) -> int:
         return 1
 
     print(f"Found {len(tracks)} tracks.")
-    work_csv = prepare_sc_playlist_csv(playlist_name, output_dir, tracks)
-    return run(work_csv, settings)
+    work_csv = prepare_sc_playlist_csv(playlist_name, work_dir, tracks)
+    return run(work_csv, settings, output_dir)
 
 
 def main() -> int:
@@ -154,16 +174,23 @@ def main() -> int:
     args = parser.parse_args()
     settings = make_settings(args)
 
+    # Ensure standard directory structure exists.
+    args.input_dir.mkdir(parents=True, exist_ok=True)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.work_dir.mkdir(parents=True, exist_ok=True)
+
     if args.sc_playlist:
         return handle_sc_playlist(args, settings)
 
     csv_files = collect_csv_files(args)
+    work_dir = args.work_dir.resolve()
 
     for i, source_csv in enumerate(csv_files, 1):
         if len(csv_files) > 1:
             print(f"\n[{i}/{len(csv_files)}] {source_csv.name}")
-        work_csv = prepare_work_csv(source_csv)
-        code = run(work_csv, settings)
+        work_csv = prepare_work_csv(source_csv, work_dir)
+        output_dir = args.output_dir.resolve() / source_csv.stem
+        code = run(work_csv, settings, output_dir)
         if code != 0:
             return code
 

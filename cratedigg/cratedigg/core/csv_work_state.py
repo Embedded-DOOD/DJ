@@ -6,7 +6,7 @@ from __future__ import annotations
 import csv
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .utils import extract_spotify_track_id, normalize_text
 
@@ -125,8 +125,11 @@ def ensure_all_columns(rows: List[Dict[str, str]], fieldnames: List[str]) -> Non
             row.setdefault(col, "")
 
 
-def work_csv_path_for(source_csv_path: Path) -> Path:
-    return source_csv_path.with_name(f"{source_csv_path.stem}_work{source_csv_path.suffix}")
+def work_csv_path_for(source_csv_path: Path, work_dir: Optional[Path] = None) -> Path:
+    name = f"{source_csv_path.stem}_work{source_csv_path.suffix}"
+    if work_dir is not None:
+        return work_dir / name
+    return source_csv_path.with_name(name)
 
 
 def playlist_stem(csv_path: Path) -> str:
@@ -136,8 +139,8 @@ def playlist_stem(csv_path: Path) -> str:
     return stem
 
 
-def prepare_work_csv(source_csv_path: Path) -> Path:
-    work_csv_path = work_csv_path_for(source_csv_path)
+def prepare_work_csv(source_csv_path: Path, work_dir: Optional[Path] = None) -> Path:
+    work_csv_path = work_csv_path_for(source_csv_path, work_dir)
     source_fieldnames, source_rows = read_csv(source_csv_path)
     derive_row_keys(source_rows)
     source_keyed: Dict[str, Dict[str, str]] = {r[ROW_KEY_COLUMN]: r for r in source_rows}
@@ -216,7 +219,7 @@ SC_PLAYLIST_SOURCE_COLUMNS = [
 
 def prepare_sc_playlist_csv(
     playlist_name: str,
-    output_dir: Path,
+    work_dir: Path,
     tracks: List[Dict[str, object]],
 ) -> Path:
     """Create or update a work CSV from a SoundCloud playlist extraction.
@@ -224,7 +227,7 @@ def prepare_sc_playlist_csv(
     Pre-populates `source_url` so the downloader skips the search step
     and downloads each track directly.
     """
-    work_csv_path = output_dir / f"{playlist_name}_work.csv"
+    work_csv_path = work_dir / f"{playlist_name}_work.csv"
     fieldnames = ensure_tracking_columns(list(SC_PLAYLIST_SOURCE_COLUMNS))
 
     def _make_row(idx: int, track: Dict[str, object]) -> Dict[str, str]:
